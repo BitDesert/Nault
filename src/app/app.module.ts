@@ -64,14 +64,9 @@ import { DeeplinkService, NinjaService } from './services';
 import { ConverterComponent } from './components/converter/converter.component';
 import { QrGeneratorComponent } from './components/qr-generator/qr-generator.component';
 
-// ngx-translate
-import {TranslateModule, TranslateLoader} from '@ngx-translate/core';
-import {TranslateHttpLoader} from '@ngx-translate/http-loader';
-
-// AoT requires an exported function for factories
-export function createTranslateLoader(http: HttpClient) {
-  return new TranslateHttpLoader(http, './assets/i18n/', '.json');
-}
+// transloco
+import { TranslocoModule } from '@ngneat/transloco';
+import { TranslocoRootModule } from './transloco/transloco-root.module';
 
 @NgModule({
   declarations: [
@@ -119,13 +114,8 @@ export function createTranslateLoader(http: HttpClient) {
     ZXingScannerModule,
     NgbModule,
     PasswordStrengthMeterModule,
-    TranslateModule.forRoot({
-      loader: {
-          provide: TranslateLoader,
-          useFactory: (createTranslateLoader),
-          deps: [HttpClient]
-      }
-    }),
+    TranslocoModule,
+    TranslocoRootModule,
   ],
   providers: [
     UtilService,

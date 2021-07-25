@@ -14,7 +14,7 @@ import {BehaviorSubject} from 'rxjs';
 import {RepresentativeService} from '../../services/representative.service';
 import {NinjaService} from '../../services/ninja.service';
 import {QrModalService} from '../../services/qr-modal.service';
-import {TranslateService} from '@ngx-translate/core';
+import { TranslocoService } from '@ngneat/transloco';
 
 @Component({
   selector: 'app-configure-app',
@@ -40,7 +40,7 @@ export class ConfigureAppComponent implements OnInit {
     private ninja: NinjaService,
     private renderer: Renderer2,
     private qrModalService: QrModalService,
-    private translate: TranslateService) { }
+    private translate: TranslocoService) { }
   wallet = this.walletService.wallet;
 
   languages = [
@@ -318,7 +318,7 @@ export class ConfigureAppComponent implements OnInit {
     const reloadFiat = this.appSettings.settings.displayCurrency !== newCurrency;
 
     this.appSettings.setAppSetting('language', this.selectedLanguage);
-    this.translate.use(this.selectedLanguage);
+    this.translate.setActiveLang(this.selectedLanguage);
 
     this.notifications.sendSuccess(`App display settings successfully updated!`);
 

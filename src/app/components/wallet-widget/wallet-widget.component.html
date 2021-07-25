@@ -4,8 +4,8 @@
       <span class="uk-text-warning" uk-icon="icon: warning; ratio: 1.2;"></span>
     </div>
     <div class="status-labels">
-      <div class="label primary uk-text-warning">{{ 'wallet-widget.ledger-disconnected' | translate }}</div>
-      <div class="label secondary"><a (click)="reloadLedger()">{{ 'general.reconnect' | translate }}</a> {{ 'general.or' | translate }} <a href="https://docs.nault.cc/2020/08/04/ledger-guide.html#troubleshooting">{{ 'wallet-widget.view-troubleshooting-guide' | translate }}</a></div>
+      <div class="label primary uk-text-warning">{{ 'wallet-widget.ledger-disconnected' | transloco }}</div>
+      <div class="label secondary"><a (click)="reloadLedger()">{{ 'general.reconnect' | transloco }}</a> {{ 'general.or' | transloco }} <a href="https://docs.nault.cc/2020/08/04/ledger-guide.html#troubleshooting">{{ 'wallet-widget.view-troubleshooting-guide' | transloco }}</a></div>
     </div>
   </div>
   <div class="nav-status-row" *ngIf="( ledgerStatus === 'locked' )">
@@ -13,8 +13,8 @@
       <span class="uk-text-warning" uk-icon="icon: warning; ratio: 1.2;"></span>
     </div>
     <div class="status-labels">
-      <div class="label primary uk-text-warning">{{ 'wallet-widget.ledger-locked' | translate }}</div>
-      <div class="label secondary">{{ 'wallet-widget.unlock-the-device-then-click-here' | translate }} <a (click)="reloadLedger()">{{ 'general.reconnect' | translate }}</a></div>
+      <div class="label primary uk-text-warning">{{ 'wallet-widget.ledger-locked' | transloco }}</div>
+      <div class="label secondary">{{ 'wallet-widget.unlock-the-device-then-click-here' | transloco }} <a (click)="reloadLedger()">{{ 'general.reconnect' | transloco }}</a></div>
     </div>
   </div>
   <div class="nav-status-row interactable" (click)="reloadLedger()" *ngIf="( ledgerStatus === 'ready' )">
@@ -22,7 +22,7 @@
       <span class="uk-text-success" uk-icon="icon: bolt; ratio: 1.2;"></span>
     </div>
     <div class="status-labels">
-      <div class="label primary uk-text-success">{{ 'wallet-widget.ledger-ready' | translate }}</div>
+      <div class="label primary uk-text-success">{{ 'wallet-widget.ledger-ready' | transloco }}</div>
     </div>
   </div>
 </div>
@@ -43,7 +43,7 @@
       <span uk-icon="icon: lock; ratio: 1.2;" class="uk-text-top"></span>
     </div>
     <div class="status-labels">
-      <div class="label primary half-muted">{{ 'wallet-widget.wallet-locked' | translate }}</div>
+      <div class="label primary half-muted">{{ 'wallet-widget.wallet-locked' | transloco }}</div>
     </div>
   </div>
   <div class="nav-status-row half-muted interactable" (click)="lockWallet()" *ngIf="!walletService.isLocked()">
@@ -51,7 +51,7 @@
       <span uk-icon="icon: unlock; ratio: 1.2;" class="uk-text-top"></span>
     </div>
     <div class="status-labels">
-      <div class="label primary half-muted">{{ 'wallet-widget.wallet-unlocked' | translate }}</div>
+      <div class="label primary half-muted">{{ 'wallet-widget.wallet-unlocked' | transloco }}</div>
     </div>
   </div>
 </ng-container>
@@ -61,7 +61,7 @@
     <span class="uk-text-warning" uk-icon="icon: warning; ratio: 1.2;"></span>
   </div>
   <div class="status-labels">
-    <div class="label primary uk-text-warning">{{ 'configure-wallet.configure-wallet' | translate }}</div>
+    <div class="label primary uk-text-warning">{{ 'configure-wallet.configure-wallet' | transloco }}</div>
   </div>
 </a>
 
@@ -69,18 +69,18 @@
   <div class="uk-modal-dialog">
     <button class="uk-modal-close-default" type="button" uk-close></button>
     <div class="uk-modal-header">
-      <h2 class="uk-modal-title">{{ 'wallet-widget.unlock-wallet' | translate }}</h2>
+      <h2 class="uk-modal-title">{{ 'wallet-widget.unlock-wallet' | transloco }}</h2>
     </div>
     <div class="uk-modal-body">
       <input #passwordInput autofocus type="password" [(ngModel)]="unlockPassword" (keyup.enter)="unlockWallet()"
         [class]="{ 'uk-input': true, 'password-input': true, 'uk-form-danger': !mayAttemptUnlock }"
-        [placeholder]="( mayAttemptUnlock ? ('wallet-widget.enter-wallet-password' | translate) : ('wallet-widget.incorrect-password' | translate) )"
+        [placeholder]="( mayAttemptUnlock ? ('wallet-widget.enter-wallet-password' | transloco) : ('wallet-widget.incorrect-password' | transloco) )"
         [disabled]="!mayAttemptUnlock"
       >
     </div>
     <div class="uk-modal-footer uk-text-right nlt-button-group">
-      <button class="uk-button uk-button-default uk-modal-close" type="button">{{ 'general.cancel' | translate }}</button>
-      <button class="uk-button uk-button-primary" type="button" (click)="unlockWallet()" [disabled]="!mayAttemptUnlock">{{ 'general.unlock' | translate }}</button>
+      <button class="uk-button uk-button-default uk-modal-close" type="button">{{ 'general.cancel' | transloco }}</button>
+      <button class="uk-button uk-button-primary" type="button" (click)="unlockWallet()" [disabled]="!mayAttemptUnlock">{{ 'general.unlock' | transloco }}</button>
     </div>
   </div>
 </div>

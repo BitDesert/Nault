@@ -6,7 +6,7 @@ import {LedgerService, LedgerStatus} from '../../services/ledger.service';
 import { QrModalService } from '../../services/qr-modal.service';
 import {UtilService} from '../../services/util.service';
 import { wallet } from 'nanocurrency-web';
-import {TranslateService} from '@ngx-translate/core';
+import { TranslocoService } from '@ngneat/transloco';
 
 enum panels {
   'landing',
@@ -79,7 +79,7 @@ export class ConfigureWalletComponent implements OnInit {
     private qrModalService: QrModalService,
     private ledgerService: LedgerService,
     private util: UtilService,
-    private translate: TranslateService) {
+    private translate: TranslocoService) {
     if (this.route.getCurrentNavigation().extras.state && this.route.getCurrentNavigation().extras.state.seed) {
       this.activePanel = panels.import;
       this.importSeedModel = this.route.getCurrentNavigation().extras.state.seed;
@@ -352,7 +352,7 @@ export class ConfigureWalletComponent implements OnInit {
     this.walletService.saveWalletExport();
     this.walletService.informNewWallet();
 
-    this.notifications.sendSuccess(this.translate.instant('configure-wallet.successfully-created-new-wallet-do-not-lose-the-seed-mnemonic'));
+    this.notifications.sendSuccess(this.translate.translate('configure-wallet.successfully-created-new-wallet-do-not-lose-the-seed-mnemonic'));
   }
 
   setPanel(panel) {

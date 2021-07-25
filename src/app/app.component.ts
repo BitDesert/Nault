@@ -12,7 +12,7 @@ import {NodeService} from './services/node.service';
 import { DesktopService, LedgerService } from './services';
 import { environment } from 'environments/environment';
 import { DeeplinkService } from './services/deeplink.service';
-import {TranslateService} from '@ngx-translate/core';
+import { TranslocoService } from '@ngneat/transloco';
 
 
 @Component({
@@ -37,14 +37,10 @@ export class AppComponent implements OnInit {
     private ledger: LedgerService,
     private renderer: Renderer2,
     private deeplinkService: DeeplinkService,
-    private translate: TranslateService) {
+    private translate: TranslocoService) {
       router.events.subscribe(() => {
         this.navExpanded = false;
       });
-
-      // available languages
-      translate.addLangs(['en', 'de', 'sv-se']);
-      translate.setDefaultLang('en');
     }
 
   @ViewChild('selectButton') selectButton: ElementRef;
@@ -81,7 +77,7 @@ export class AppComponent implements OnInit {
     await this.patchXrbToNanoPrefixData();
 
     // set translation language
-    this.translate.use(this.settings.settings.language);
+    this.translate.setActiveLang(this.settings.settings.language);
 
     this.addressBook.loadAddressBook();
     this.workPool.loadWorkCache();
@@ -134,12 +130,12 @@ export class AppComponent implements OnInit {
     // (if not receive priority is set to manual)
     if (this.wallet.locked && this.walletService.hasPendingTransactions() && this.settings.settings.pendingOption !== 'manual') {
       this.notifications.sendWarning(
-        this.translate.instant('app.new-incoming-transaction-s-unlock-the-wallet-to-receive'),
+        this.translate.translate('app.new-incoming-transaction-s-unlock-the-wallet-to-receive'),
         { length: 10000, identifier: 'pending-locked' }
       );
     } else if (this.walletService.hasPendingTransactions() && this.settings.settings.pendingOption === 'manual') {
       this.notifications.sendWarning(
-        this.translate.instant('app.incoming-transaction-s-found-set-to-be-received-manually'),
+        this.translate.translate('app.incoming-transaction-s-found-set-to-be-received-manually'),
         { length: 10000, identifier: 'pending-locked' }
       );
     }
@@ -170,7 +166,7 @@ export class AppComponent implements OnInit {
       if (this.inactiveSeconds >= this.settings.settings.lockInactivityMinutes * 60) {
         this.walletService.lockWallet();
         this.notifications.sendSuccess(
-          this.translate.instant(
+          this.translate.translate(
             'app.wallet-locked-after-x-minutes-of-inactivity',
             { minutes: this.settings.settings.lockInactivityMinutes }
           )
@@ -183,7 +179,7 @@ export class AppComponent implements OnInit {
       await this.updateFiatPrices();
     } catch (err) {
       this.notifications.sendWarning(
-        this.translate.instant('app.there-was-an-issue-retrieving-the-latest-fiat-price'),
+        this.translate.translate('app.there-was-an-issue-retrieving-the-latest-fiat-price'),
         { length: 0, identifier: `price-issue` }
       );
     }
@@ -262,7 +258,7 @@ export class AppComponent implements OnInit {
     } else if (searchData.length === 64) {
       this.router.navigate(['transaction', searchData]);
     } else {
-      this.notifications.sendWarning(this.translate.instant('app.invalid-nano-account-or-transaction-hash'));
+      this.notifications.sendWarning(this.translate.translate('app.invalid-nano-account-or-transaction-hash'));
     }
     this.searchData = '';
   }
@@ -273,11 +269,11 @@ export class AppComponent implements OnInit {
 
   retryConnection() {
     if (!this.settings.settings.serverAPI) {
-      this.notifications.sendInfo(this.translate.instant('app.wallet-server-settings-is-set-to-offline-mode'));
+      this.notifications.sendInfo(this.translate.translate('app.wallet-server-settings-is-set-to-offline-mode'));
       return;
     }
     this.walletService.reloadBalances();
-    this.notifications.sendInfo(this.translate.instant('app.attempting-to-reconnect-to-server'));
+    this.notifications.sendInfo(this.translate.translate('app.attempting-to-reconnect-to-server'));
   }
 
   async updateFiatPrices() {
