@@ -2,53 +2,73 @@
 	max-width: 800px;
 }
 
-select:invalid {
-  color: #888;
+.max-amt-button {
+  text-transform: uppercase;
+  font-size: 15px;
 }
 
 .form-amount {
 	max-width: 450px;
 }
 
-.confirm-title {
-  display: block;
-  font-size: 24px;
+.amount-raw-extra {
+  margin: 12px 5px 12px 10px;
+}
+.amount-raw-extra .uk-icon {
+  vertical-align: 1px;
+  border: 1px solid #81809f;
+  border-radius: 100%;
+  padding: 6px;
+  transition: border-color 100ms ease-in-out;
+}
+.amount-raw-extra .uk-icon:hover {
+  border-color: #f0506e;
 }
 
-.confirm-currency {
-  display: block;
-  font-size: 20px;
+.block-amount-primary {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+  line-height: 1;
+  margin-top: 4px;
 }
 
-.confirm-subtitle {
-  display: block;
-  font-size: 10px;
+.block-amount-primary > .amount-integer {
+  font-size: 32px;
+  font-weight: 700;
 }
 
-.dropdown-nav-container {
-    background: white;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    box-shadow: 0 5px 15px rgba(0,0,0,.08) !important;
+.block-amount-primary > .amount-fractional,
+.block-amount-primary > .currency-name {
+  font-size: 21px;
 }
 
-.uk-nav-header {
-    font-weight: 500;
+.block-amount-primary > .currency-name {
+  margin-left: 6px;
 }
 
-@media (max-width: 12450px) {
-  .br-spacer {
-    display: block;
-  }
-}
-@media (max-width: 959px) {
-  .br-spacer {
-    display: none;
-  }
+.block-balance .balance-amount-primary .amount-amount-sign,
+.block-balance .balance-amount-primary .amount-integer,
+.block-balance .balance-amount-primary .amount-fractional,
+.block-balance .balance-amount-primary .currency-name {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+  font-size: 16px;
 }
 
-.uk-dropdown-spacing {
-  padding: 5px 0;
+.block-balance .balance-amount-primary .amount-sign {
+  font-weight: 500;
+  margin-right: 1px;
+}
+
+.block-balance .balance-amount-primary .amount-integer {
+  font-weight: 700;
+}
+
+.block-balance .balance-amount-primary .amount-fractional {
+  font-weight: 500;
+}
+
+.block-balance .balance-amount-primary .currency-name {
+  font-weight: 400;
+  margin-left: 5px;
 }
 
 .send-types-wrapper {
@@ -56,6 +76,7 @@ select:invalid {
   padding-bottom: 15px;
 }
 .send-types-frame {
+  width: 100%;
   display: inline-block;
 }
 .send-types-tab {
@@ -66,7 +87,12 @@ select:invalid {
 }
 .send-types-tab-active {
   border-color: transparent;
-  color: #555 !important;
-  background: #f4faff;
-  box-shadow: none;
+}
+
+.icon-nano-logo {
+  margin: 13px 11px;
+  width: 32px;
+  background-color: currentcolor;
+  -webkit-mask-image: url('assets/img/nano-mark-simple.svg');
+  mask-image: url('assets/img/nano-mark-simple.svg');
 }

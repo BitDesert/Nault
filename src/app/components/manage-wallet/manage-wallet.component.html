@@ -30,13 +30,20 @@
         <h3 class="uk-card-title">Backup Wallet</h3>
       </div>
       <div class="uk-card-body">
-        <p *ngIf="wallet.locked">
+        <p *ngIf="wallet.locked && wallet.type === 'seed'">
           <span uk-icon="icon: lock;"></span> Unlock wallet to access the seed/mnemonic.
         </p>
-        <p *ngIf="!wallet.locked">
-          To backup your wallet mnemonic phrase, <a title="Copy Mnemonic To Clipboard" ngxClipboard [cbContent]="seedMnemonic()" (cbOnSuccess)="notifications.sendSuccess('Wallet mnemonic copied to clipboard!')" uk-tooltip>click here</a> to copy it to your clipboard.<br>
-          <br>
+        <p *ngIf="wallet.locked && (wallet.type === 'privateKey' || wallet.type === 'expandedKey')">
+          <span uk-icon="icon: lock;"></span> Unlock wallet to access the private key.
+        </p>
+        <p *ngIf="!wallet.locked && wallet.type === 'seed'">
+          To backup your wallet mnemonic phrase, <a title="Copy Mnemonic To Clipboard" ngxClipboard [cbContent]="seedMnemonic()" (cbOnSuccess)="notifications.sendSuccess('Wallet mnemonic copied to clipboard!')" uk-tooltip>click here</a> to copy it to your clipboard.
+        </p>
+        <p *ngIf="!wallet.locked && wallet.type === 'seed'">
           To backup your wallet seed, <a title="Copy Seed To Clipboard" ngxClipboard [cbContent]="wallet.seed" (cbOnSuccess)="notifications.sendSuccess('Wallet seed copied to clipboard!')" uk-tooltip>click here</a> to copy it to your clipboard.<br>
+        </p>
+        <p *ngIf="!wallet.locked && (wallet.type === 'privateKey' || wallet.type === 'expandedKey')">
+          To backup your private key, <a title="Copy Private Key To Clipboard" ngxClipboard [cbContent]="wallet.seed" (cbOnSuccess)="notifications.sendSuccess('Private Key copied to clipboard!')" uk-tooltip>click here</a> to copy it to your clipboard.<br>
         </p>
       </div>
     </div>
@@ -61,15 +68,20 @@
             <div *ngIf="showQRExport" uk-grid>
               <div class="uk-width-1-1">
                 <hr class="uk-divider-icon uk-margin-small-top">
-                <div class="uk-alert uk-alert-danger">
-                  <b>If you forget the wallet password used at the time of this export, you will NOT be able to restore your wallet.</b>
-                  <br>
-                  For backup purposes, <b>always store the seed and/or mnemonic</b> from the "Backup Wallet" section above.
+                <div class="uk-alert uk-alert-danger nlt-inline-alert" style="max-width: 600px;">
+                  <div class="icon-column">
+                    <div uk-icon="icon: warning; ratio: 2;"></div>
+                  </div>
+                  <p>
+                    <b>If you forget the wallet password used at the time of this export, you will NOT be able to restore your wallet.</b>
+                    <br><br>
+                    For backup purposes, <b>always store the seed and/or mnemonic</b> from the "Backup Wallet" section above.
+                  </p>
                 </div>
               </div>
 
               <div class="uk-width-1-1@s uk-width-1-2@m uk-width-1-3@l">
-                <img [src]="QRExportImg" alt="QR code">
+                <img [src]="QRExportImg" alt="QR code" style="border-radius: 6px;">
               </div>
               <div class="uk-width-1-1@s uk-width-1-2@m uk-width-2-3@l">
                 <br>
@@ -86,7 +98,7 @@
             </div>
           </div>
           <div class="uk-card-footer uk-text-right@s uk-text-center nlt-button-group" *ngIf="!showQRExport">
-            <button (click)="exportWallet()" class="uk-button uk-button-secondary uk-width-auto@s uk-width-1-1">Export Wallet</button>
+            <button (click)="exportWallet()" class="uk-button uk-button-primary uk-width-auto@s uk-width-1-1">Export Wallet</button>
           </div>
         </ng-container>
         <ng-template #walletHasNoPassword>
@@ -95,6 +107,84 @@
           </div>
         </ng-template>
       </ng-template>
+    </div>
+
+    <div class="uk-card uk-card-default uk-margin">
+      <div class="uk-card-header">
+        <h3 class="uk-card-title">Export Transaction History</h3>
+      </div>
+      <div *ngIf="!csvExportStarted" class="uk-card-body">
+        <p>
+          Use this tool to export the transaction history of a specific account as a CSV file.
+        </p>
+      </div>
+      <div *ngIf="csvExportStarted" class="uk-card-body">
+        <p>
+          Due to limitations in backend servers, you can only request {{transactionHistoryLimit}} transactions per export.<br>
+          However, you can use an offset of X to continue exporting from (X + 1). Another way is connecting Nault to a <a routerLink="/configure-app" routerLinkActive="active">custom server</a> for unlimited history.<br>
+        </p>
+        <div uk-grid>
+          <div class="uk-width-1-1 narrow-div">
+            <div class="uk-form-horizontal">
+              <div class="uk-margin">
+                <label class="uk-form-label" for="account">Account</label>
+                <div class="uk-form-controls">
+                  <select class="uk-select" id="account" [(ngModel)]="csvAccount">
+                    <option *ngFor="let account of accounts" [value]="account.id">{{account.addressBookName ? account.addressBookName + ' - ' : '#' + account.index + ' - ' }} {{ account.id | squeeze }} ({{ account.balance | rai: 'mnano,true' | amountsplit: 0 }}{{ account.balance | rai: 'mnano,true' | amountsplit: 1 }} NANO)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="uk-width-1-1 narrow-div">
+            <div class="uk-form-horizontal">
+              <div class="uk-margin">
+                <label class="uk-form-label" for="tx-count">Transaction Limit <span uk-icon="icon: info;" uk-tooltip title="Maximum number of transactions to export. Blank or 0 equals unlimited but only effective if using a custom server."></span></label>
+                <div class="uk-form-controls">
+                  <div class="uk-inline uk-width-1-1">
+                    <input [(ngModel)]="csvCount" class="uk-input uk-margin-small-bottom {{invalidCsvCount ? 'uk-form-danger':''}}" id="tx-count" type="text" (ngModelChange)="csvCountChange(csvCount)" placeholder="" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="uk-width-1-1 narrow-div">
+            <div class="uk-form-horizontal">
+              <div class="uk-margin">
+                <label class="uk-form-label" for="tx-order">Transaction Order</label>
+                <div class="uk-form-controls">
+                  <div class="uk-inline uk-width-1-1">
+                    <select class="uk-select" [(ngModel)]="selectedOrder" id="tx-order">
+                      <option *ngFor="let option of orderOptions" [ngValue]="option.value">{{ option.name }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="uk-width-1-1 narrow-div">
+            <div class="uk-form-horizontal">
+              <div class="uk-margin">
+                <label class="uk-form-label" for="tx-offset">Offset (optional) <span uk-icon="icon: info;" uk-tooltip title="Start the export after this index. 10 means starting at transaction 11. Blank or 0 equals no offset."></span></label>
+                <div class="uk-form-controls">
+                  <div class="uk-inline uk-width-1-1">
+                    <input [(ngModel)]="csvOffset" class="uk-input uk-margin-small-bottom {{invalidCsvOffset ? 'uk-form-danger':''}}" id="tx-offset" type="text" (ngModelChange)="csvOffsetChange(csvOffset)" placeholder="" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="uk-card-footer uk-text-right@s uk-text-center nlt-button-group">
+        <button *ngIf="!csvExportStarted" class="uk-button uk-button-primary uk-width-1-1@s uk-width-auto@m uk-float-right" type="button" [disabled]="!settings.settings.serverAPI" (click)="csvInit()">{{settings.settings.serverAPI ? 'GET STARTED':'NOT AVAILABLE IN OFFLINE MODE'}}</button>
+        <button *ngIf="csvExportStarted && !exportingCsv" class="uk-button uk-button-primary uk-width-1-1@s uk-width-auto@m uk-float-right" type="button" [disabled]="!exportEnabled" (click)="exportToCsv()">{{exportEnabled ? 'EXPORT HISTORY':'COOLDOWN'}}</button>
+        <button *ngIf="csvExportStarted && exportingCsv" class="uk-button uk-button-secondary uk-disabled uk-width-1-1@s uk-width-auto@m uk-float-right nlt-icon-button nlt-icon-button-inline" type="button"><span class="uk-margin-right" uk-spinner="ratio: 0.5;"></span> FETCHING HISTORY...</button>
+      </div>
     </div>
 
   </div>

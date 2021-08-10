@@ -1,5 +1,6 @@
 import {Component, OnDestroy, OnInit} from '@angular/core';
 import {ActivatedRoute, ChildActivationEnd, Router, NavigationEnd} from '@angular/router';
+import {formatDate} from '@angular/common';
 import {AddressBookService} from '../../services/address-book.service';
 import {ApiService} from '../../services/api.service';
 import {NotificationService} from '../../services/notification.service';
@@ -15,6 +16,7 @@ import {BehaviorSubject} from 'rxjs';
 import * as nanocurrency from 'nanocurrency';
 import {NinjaService} from '../../services/ninja.service';
 import { QrModalService } from '../../services/qr-modal.service';
+import { TranslocoService } from '@ngneat/transloco';
 
 @Component({
   selector: 'app-account-details',
@@ -31,15 +33,28 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
   maxPageSize = 200;
 
   repLabel: any = '';
+  repVotingWeight: BigNumber;
+  repDonationAddress: any = '';
+
   addressBookEntry: any = null;
   account: any = {};
   accountID = '';
 
   walletAccount = null;
 
+  timeoutIdAllowingRefresh: any = null;
+  qrModal: any = null;
+  mobileAccountMenuModal: any = null;
+  mobileTransactionMenuModal: any = null;
+  mobileTransactionData: any = null;
+
+  showFullDetailsOnSmallViewports = false;
+  loadingAccountDetails = false;
+  loadingIncomingTxList = false;
+  loadingTxList = false;
+  showAdvancedOptions = false;
   showEditAddressBook = false;
   addressBookModel = '';
-  showEditRepresentative = false;
   representativeModel = '';
   representativeResults$ = new BehaviorSubject([]);
   showRepresentatives = false;
@@ -52,6 +67,8 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
   priceSub = null;
 
   statsRefreshEnabled = true;
+  dateStringToday = '';
+  dateStringYesterday = '';
 
   // Remote signing
   addressBookResults$ = new BehaviorSubject([]);
@@ -84,6 +101,7 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
   blockTypes: string[] = ['Send Nano', 'Change Representative'];
   blockTypeSelected: string = this.blockTypes[0];
   representativeList = [];
+  representativesOverview = [];
   // End remote signing
 
   constructor(
@@ -99,7 +117,8 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     public settings: AppSettingsService,
     private nanoBlock: NanoBlockService,
     private qrModalService: QrModalService,
-    private ninja: NinjaService) {
+    private ninja: NinjaService,
+    private translocoService: TranslocoService) {
       // to detect when the account changes if the view is already active
       route.events.subscribe((val) => {
         if (val instanceof NavigationEnd) {
@@ -111,12 +130,17 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     const params = this.router.snapshot.queryParams;
     if ('sign' in params) {
-      this.remoteVisible = params.sign === 1;
+      this.remoteVisible = params.sign === '1';
+      this.showAdvancedOptions = params.sign === '1';
     }
+
+    this.showFullDetailsOnSmallViewports = (params.compact !== '1');
 
     this.routerSub = this.route.events.subscribe(event => {
       if (event instanceof ChildActivationEnd) {
         this.loadAccountDetails(); // Reload the state when navigating to itself from the transactions page
+        this.showFullDetailsOnSmallViewports = (this.router.snapshot.queryParams.compact !== '1');
+        this.mobileTransactionMenuModal.hide();
       }
     });
     this.priceSub = this.price.lastPrice$.subscribe(event => {
@@ -124,25 +148,65 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
       this.account.pendingFiat = this.util.nano.rawToMnano(this.account.pending || 0).times(this.price.price.lastPrice).toNumber();
     });
 
+    const UIkit = window['UIkit'];
+    const qrModal = UIkit.modal('#qr-code-modal');
+    this.qrModal = qrModal;
+
+    const mobileAccountMenuModal = UIkit.modal('#mobile-account-menu-modal');
+    this.mobileAccountMenuModal = mobileAccountMenuModal;
+
+    const mobileTransactionMenuModal = UIkit.modal('#mobile-transaction-menu-modal');
+    this.mobileTransactionMenuModal = mobileTransactionMenuModal;
+
     await this.loadAccountDetails();
     this.addressBook.loadAddressBook();
 
-    // populate representative list
-    if (!this.settings.settings.serverAPI) return;
-    const verifiedReps = await this.ninja.recommendedRandomized();
+    this.populateRepresentativeList();
 
-    for (const representative of verifiedReps) {
-      const temprep = {
-        id: representative.account,
-        name: representative.alias
-      };
+    this.repService.walletReps$.subscribe(async reps => {
+      if ( reps[0] === null ) {
+        // initial state from new BehaviorSubject([null])
+        return;
+      }
 
-      this.representativeList.push(temprep);
+      this.representativesOverview = reps;
+      this.updateRepresentativeInfo();
+    });
+  }
+
+  async populateRepresentativeList() {
+    // add trusted/regular local reps to the list
+    const localReps = this.repService.getSortedRepresentatives();
+    this.representativeList.push( ...localReps.filter(rep => (!rep.warn)) );
+
+    if (this.settings.settings.serverAPI) {
+      const verifiedReps = await this.ninja.recommendedRandomized();
+
+      // add random recommended reps to the list
+      for (const representative of verifiedReps) {
+        const temprep = {
+          id: representative.account,
+          name: representative.alias
+        };
+
+        this.representativeList.push(temprep);
+      }
     }
 
-    // add the localReps to the list
-    const localReps = this.repService.getSortedRepresentatives();
-    this.representativeList.push(...localReps);
+    // add untrusted local reps to the list
+    this.representativeList.push( ...localReps.filter(rep => (rep.warn)) );
+  }
+
+  clearAccountVars() {
+    this.accountHistory = [];
+    this.pendingBlocks = [];
+    this.accountID = '';
+    this.addressBookEntry = null;
+    this.addressBookModel = '';
+    this.showEditAddressBook = false;
+    this.walletAccount = null;
+    this.account = {};
+    this.qrCodeImage = null;
   }
 
   clearRemoteVars() {
@@ -167,51 +231,134 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     this.representativeListMatch = '';
   }
 
+  updateRepresentativeInfo() {
+    if (!this.account) {
+      return;
+    }
+
+    const representativeFromOverview =
+      this.representativesOverview.find(
+        (rep) =>
+          (rep.account === this.account.representative)
+      );
+
+    if (representativeFromOverview != null) {
+      this.repLabel = representativeFromOverview.label;
+      this.repVotingWeight = representativeFromOverview.percent;
+      this.repDonationAddress = representativeFromOverview.donationAddress;
+      return;
+    }
+
+    this.repVotingWeight = new BigNumber(0);
+    this.repDonationAddress = null;
+
+    const knownRepresentative = this.repService.getRepresentative(this.account.representative);
+
+    if (knownRepresentative != null) {
+      this.repLabel = knownRepresentative.name;
+      return;
+    }
+
+    this.repLabel = null;
+  }
+
   async loadAccountDetails(refresh= false) {
     if (refresh && !this.statsRefreshEnabled) return;
     this.statsRefreshEnabled = false;
-    setTimeout(() => this.statsRefreshEnabled = true, 5000);
+
+    if (this.timeoutIdAllowingRefresh != null) {
+      clearTimeout(this.timeoutIdAllowingRefresh);
+    }
+    this.timeoutIdAllowingRefresh = setTimeout(() => this.statsRefreshEnabled = true, 5000);
 
     this.pendingBlocks = [];
-    this.accountID = this.router.snapshot.params.account;
-    this.addressBookEntry = this.addressBook.getAccountName(this.accountID);
-    this.addressBookModel = this.addressBookEntry || '';
-    this.walletAccount = this.wallet.getWalletAccount(this.accountID);
-    this.account = await this.api.accountInfo(this.accountID);
 
-    if (!this.account) return;
-    const knownRepresentative = this.repService.getRepresentative(this.account.representative);
-    this.repLabel = knownRepresentative ? knownRepresentative.name : null;
+    this.clearAccountVars();
+    this.loadingAccountDetails = true;
+
+    const accountID = this.router.snapshot.params.account;
+    this.accountID = accountID;
+    this.generateReceiveQR(accountID);
+
+    this.addressBookEntry = this.addressBook.getAccountName(accountID);
+    this.addressBookModel = this.addressBookEntry || '';
+    this.walletAccount = this.wallet.getWalletAccount(accountID);
+
+    this.account = await this.api.accountInfo(accountID);
+
+    if (accountID !== this.accountID) {
+      // Navigated to a different account while account info was loading
+      return;
+    }
+
+    if (!this.account) {
+      this.loadingAccountDetails = false;
+      return;
+    }
+
+    this.updateRepresentativeInfo();
 
     // If there is a pending balance, or the account is not opened yet, load pending transactions
     if ((!this.account.error && this.account.pending > 0) || this.account.error) {
       // Take minimum receive into account
+      let pendingBalance = '0';
       let pending;
+
+      this.pendingBlocks = [];
+      this.loadingIncomingTxList = true;
+
       if (this.settings.settings.minimumReceive) {
         const minAmount = this.util.nano.mnanoToRaw(this.settings.settings.minimumReceive);
-        pending = await this.api.pendingLimit(this.accountID, 50, minAmount.toString(10));
-        this.account.pending = '0';
+        pending = await this.api.pendingLimitSorted(accountID, 50, minAmount.toString(10));
       } else {
-        pending = await this.api.pending(this.accountID, 50);
+        pending = await this.api.pendingSorted(accountID, 50);
       }
+
+      if (accountID !== this.accountID) {
+        // Navigated to a different account while incoming tx were loading
+        return;
+      }
+
+      this.loadingIncomingTxList = false;
 
       if (pending && pending.blocks) {
         for (const block in pending.blocks) {
           if (!pending.blocks.hasOwnProperty(block)) continue;
+          const transaction = pending.blocks[block];
+
           this.pendingBlocks.push({
-            account: pending.blocks[block].source,
-            amount: pending.blocks[block].amount,
-            local_timestamp: pending.blocks[block].local_timestamp,
-            addressBookName: this.addressBook.getAccountName(pending.blocks[block].source) || null,
+            account: transaction.source,
+            amount: transaction.amount,
+            amountRaw: new BigNumber( transaction.amount || 0 ).mod(this.nano),
+            local_timestamp: transaction.local_timestamp,
+            local_date_string: (
+                transaction.local_timestamp
+              ? formatDate(transaction.local_timestamp * 1000, 'MMM d, y', 'en-US')
+              : 'N/A'
+            ),
+            local_time_string: (
+                transaction.local_timestamp
+              ? formatDate(transaction.local_timestamp * 1000, 'HH:mm:ss', 'en-US')
+              : ''
+            ),
+            addressBookName: (
+                this.addressBook.getAccountName(transaction.source)
+              || this.getAccountLabel(transaction.source, null)
+            ),
             hash: block,
+            loading: false,
+            received: false,
+            isReceivable: true,
           });
 
-          // Update the actual account pending amount with this above-threshold-value
-          if (this.settings.settings.minimumReceive) {
-            this.account.pending = new BigNumber(this.account.pending).plus(pending.blocks[block].amount).toString(10);
-          }
+          pendingBalance = new BigNumber(pendingBalance).plus(transaction.amount).toString(10);
         }
       }
+
+      this.account.pending = pendingBalance;
+    } else {
+      // Unset variable that may still be set to true from old request
+      this.loadingIncomingTxList = false;
     }
 
     // If the account doesnt exist, set the pending balance manually
@@ -228,14 +375,30 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     this.account.pendingRaw = new BigNumber(this.account.pending || 0).mod(this.nano);
     this.account.balanceFiat = this.util.nano.rawToMnano(this.account.balance || 0).times(this.price.price.lastPrice).toNumber();
     this.account.pendingFiat = this.util.nano.rawToMnano(this.account.pending || 0).times(this.price.price.lastPrice).toNumber();
-    await this.getAccountHistory(this.accountID);
 
+    await this.getAccountHistory(accountID);
 
-    const qrCode = await QRCode.toDataURL(`${this.accountID}`);
-    this.qrCodeImage = qrCode;
+    if (accountID !== this.accountID) {
+      // Navigated to a different account while account history was loading
+      return;
+    }
+
+    this.loadingAccountDetails = false;
+  }
+
+  getAccountLabel(accountID, defaultLabel) {
+    const walletAccount = this.wallet.wallet.accounts.find(a => a.id === accountID);
+
+    if (walletAccount == null) {
+      return defaultLabel;
+    }
+
+    return (this.translocoService.translate('general.account') + ' #' + walletAccount.index);
   }
 
   ngOnDestroy() {
+    this.mobileAccountMenuModal.hide();
+    this.mobileTransactionMenuModal.hide();
     if (this.routerSub) {
       this.routerSub.unsubscribe();
     }
@@ -244,52 +407,125 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getAccountHistory(account, resetPage = true) {
+  async generateReceiveQR(accountID) {
+    const qrCode = await QRCode.toDataURL(`${accountID}`, { errorCorrectionLevel: 'M', scale: 16 });
+    this.qrCodeImage = qrCode;
+  }
+
+  updateTodayYesterdayDateStrings() {
+    const unixTimeNow = Date.now();
+
+    this.dateStringToday = formatDate( unixTimeNow, 'MMM d, y', 'en-US' );
+    this.dateStringYesterday = formatDate( unixTimeNow - 86400000, 'MMM d, y', 'en-US' );
+  }
+
+  async getAccountHistory(accountID, resetPage = true) {
     if (resetPage) {
+      this.accountHistory = [];
       this.pageSize = 25;
     }
-    const history = await this.api.accountHistory(account, this.pageSize, true);
+
+    this.loadingTxList = true;
+    this.updateTodayYesterdayDateStrings();
+
+    const history = await this.api.accountHistory(accountID, this.pageSize, true);
+
+    if (accountID !== this.accountID) {
+      // Navigated to a different account while account history was loading
+      return;
+    }
+
     const additionalBlocksInfo = [];
+
+    const accountConfirmationHeight = (
+        this.account.confirmation_height
+      ? parseInt(this.account.confirmation_height, 10)
+      : null
+    );
 
     if (history && history.history && Array.isArray(history.history)) {
       this.accountHistory = history.history.map(h => {
+        h.local_date_string = (
+            h.local_timestamp
+          ? formatDate(h.local_timestamp * 1000, 'MMM d, y', 'en-US')
+          : 'N/A'
+        );
+
+        h.local_time_string = (
+            h.local_timestamp
+          ? formatDate(h.local_timestamp * 1000, 'HH:mm:ss', 'en-US')
+          : ''
+        );
+
         if (h.type === 'state') {
           // For Open and receive blocks, we need to look up block info to get originating account
           if (h.subtype === 'open' || h.subtype === 'receive') {
             additionalBlocksInfo.push({ hash: h.hash, link: h.link });
+          } else if (h.subtype === 'change') {
+            h.link_as_account = h.representative;
+            h.addressBookName = (
+                this.addressBook.getAccountName(h.link_as_account)
+              || this.getAccountLabel(h.link_as_account, null)
+            );
           } else {
             h.link_as_account = this.util.account.getPublicAccountID(this.util.hex.toUint8(h.link));
-            h.addressBookName = this.addressBook.getAccountName(h.link_as_account) || null;
+            h.addressBookName = (
+                this.addressBook.getAccountName(h.link_as_account)
+              || this.getAccountLabel(h.link_as_account, null)
+            );
           }
         } else {
-          h.addressBookName = this.addressBook.getAccountName(h.account) || null;
+          h.addressBookName = (
+              this.addressBook.getAccountName(h.account)
+            || this.getAccountLabel(h.account, null)
+          );
         }
+
+        if (
+              (accountConfirmationHeight != null)
+            && (h.height != null)
+            && ( accountConfirmationHeight < parseInt(h.height, 10) )
+          ) {
+            h.confirmed = false;
+        }
+
         return h;
       });
 
-      // Remove change blocks now that we are using the raw output
-      this.accountHistory = this.accountHistory.filter(h => h.type !== 'change' && h.subtype !== 'change');
+      // Currently not supporting non-state rep change or state epoch blocks
+      this.accountHistory = this.accountHistory.filter(h => h.type !== 'change' && h.subtype !== 'epoch');
 
       if (additionalBlocksInfo.length) {
         const blocksInfo = await this.api.blocksInfo(additionalBlocksInfo.map(b => b.link));
+
+        if (accountID !== this.accountID) {
+          // Navigated to a different account while block info was loading
+          return;
+        }
+
         for (const block in blocksInfo.blocks) {
           if (!blocksInfo.blocks.hasOwnProperty(block)) continue;
 
           const matchingBlock = additionalBlocksInfo.find(a => a.link === block);
           if (!matchingBlock) continue;
-          const accountInHistory = this.accountHistory.find(h => h.hash === matchingBlock.hash);
-          if (!accountInHistory) continue;
+          const accountHistoryBlock = this.accountHistory.find(h => h.hash === matchingBlock.hash);
+          if (!accountHistoryBlock) continue;
 
           const blockData = blocksInfo.blocks[block];
 
-          accountInHistory.link_as_account = blockData.block_account;
-          accountInHistory.addressBookName = this.addressBook.getAccountName(blockData.block_account) || null;
+          accountHistoryBlock.link_as_account = blockData.block_account;
+          accountHistoryBlock.addressBookName = (
+              this.addressBook.getAccountName(blockData.block_account)
+            || this.getAccountLabel(blockData.block_account, null)
+          );
         }
       }
 
     } else {
       this.accountHistory = [];
     }
+
+    this.loadingTxList = false;
   }
 
   async loadMore() {
@@ -299,40 +535,11 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async saveRepresentative() {
-    if (this.wallet.walletIsLocked()) return this.notifications.sendWarning(`Wallet must be unlocked`);
-    if (!this.walletAccount) return;
-    const repAccount = this.representativeModel;
-
-    const valid = this.util.account.isValidAccount(repAccount);
-    if (!valid) return this.notifications.sendWarning(`Account ID is not a valid account`);
-
-    try {
-      const changed = await this.nanoBlock.generateChange(this.walletAccount, repAccount, this.wallet.isLedgerWallet());
-      if (!changed) {
-        this.notifications.sendError(`Error changing representative, please try again`);
-        return;
-      }
-    } catch (err) {
-      this.notifications.sendError(err.message);
-      return;
-    }
-
-    // Reload some states, we are successful
-    this.representativeModel = '';
-    this.showEditRepresentative = false;
-
-    const accountInfo = await this.api.accountInfo(this.accountID);
-    this.account = accountInfo;
-    const newRep = this.repService.getRepresentative(repAccount);
-    this.repLabel = newRep ? newRep.name : '';
-
-    this.notifications.sendSuccess(`Successfully changed representative`);
-  }
-
   async saveAddressBook() {
-    const addressBookName = this.addressBookModel.trim();
-    if (!addressBookName) {
+    // Trim and remove duplicate spaces
+    this.addressBookModel = this.addressBookModel.trim().replace(/ +/g, ' ');
+
+    if (!this.addressBookModel) {
       // Check for deleting an entry in the address book
       if (this.addressBookEntry) {
         this.addressBook.deleteAddress(this.accountID);
@@ -344,16 +551,29 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if ( /^Account #\d+$/g.test(this.addressBookModel) === true ) {
+      return this.notifications.sendError(`This name is reserved for wallet accounts without a label`);
+    }
+
+    // Make sure no other entries are using that name
+    const accountIdWithSameName = this.addressBook.getAccountIdByName(this.addressBookModel);
+
+    if ( (accountIdWithSameName !== null) && (accountIdWithSameName !== this.accountID) ) {
+      return this.notifications.sendError(`This name is already in use! Please use a unique name`);
+    }
+
     try {
-      await this.addressBook.saveAddress(this.accountID, addressBookName);
+      const currentBalanceTracking = this.addressBook.getBalanceTrackingById(this.accountID);
+      const currentTransactionTracking = this.addressBook.getTransactionTrackingById(this.accountID);
+      await this.addressBook.saveAddress(this.accountID, this.addressBookModel, currentBalanceTracking, currentTransactionTracking);
     } catch (err) {
-      this.notifications.sendError(err.message);
+      this.notifications.sendError(`Unable to save entry: ${err.message}`);
       return;
     }
 
-    this.notifications.sendSuccess(`Saved address book entry!`);
+    this.notifications.sendSuccess(`Address book entry saved successfully!`);
 
-    this.addressBookEntry = addressBookName;
+    this.addressBookEntry = this.addressBookModel;
     this.showEditAddressBook = false;
   }
 
@@ -366,6 +586,8 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
 
     const matches = this.representativeList
       .filter(a => a.name.toLowerCase().indexOf(search.toLowerCase()) !== -1)
+      // remove duplicate accounts
+      .filter((item, pos, self) => this.util.array.findWithAttr(self, 'id', item.id) === pos)
       .slice(0, 5);
 
     this.representativeResults$.next(matches);
@@ -466,7 +688,10 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
     // Remove spaces from the account id
     this.toAccountID = this.toAccountID.replace(/ /g, '');
 
-    this.addressBookMatch = this.addressBook.getAccountName(this.toAccountID);
+    this.addressBookMatch = (
+        this.addressBook.getAccountName(this.toAccountID)
+      || this.getAccountLabel(this.toAccountID, null)
+    );
 
     // const accountInfo = await this.walletService.walletApi.accountInfo(this.toAccountID);
     this.toAccountStatus = null;
@@ -520,6 +745,50 @@ export class AccountDetailsComponent implements OnInit, OnDestroy {
       case 'knano': return this.util.nano.rawToKnano(value);
       case 'mnano': return this.util.nano.rawToMnano(value);
     }
+  }
+
+  showMobileMenuForTransaction(transaction) {
+    this.notifications.removeNotification('success-copied');
+
+    this.mobileTransactionData = transaction;
+    this.mobileTransactionMenuModal.show();
+  }
+
+  onReceiveFundsPress(receivableTransaction) {
+    if (receivableTransaction.loading || receivableTransaction.received) {
+      return;
+    }
+
+    this.receiveReceivableBlock(receivableTransaction);
+  }
+
+  async receiveReceivableBlock(receivableBlock) {
+    const sourceBlock = receivableBlock.hash;
+
+    if (this.wallet.walletIsLocked()) {
+      return this.notifications.sendWarning(`Wallet must be unlocked`);
+    }
+    receivableBlock.loading = true;
+
+    const createdReceiveBlockHash =
+      await this.nanoBlock.generateReceive(this.walletAccount, sourceBlock, this.wallet.isLedgerWallet());
+
+    if (createdReceiveBlockHash) {
+      receivableBlock.received = true;
+      this.mobileTransactionMenuModal.hide();
+      this.notifications.removeNotification('success-receive');
+      this.notifications.sendSuccess(`Successfully received Nano!`, { identifier: 'success-receive' });
+      // clear the list of pending blocks. Updated again with reloadBalances()
+      this.wallet.clearPendingBlocks();
+    } else {
+      if (!this.wallet.isLedgerWallet()) {
+        this.notifications.sendError(`There was a problem receiving the transaction, try manually!`, {length: 10000});
+      }
+    }
+
+    receivableBlock.loading = false;
+
+    await this.wallet.reloadBalances();
   }
 
   async generateSend() {

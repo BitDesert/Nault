@@ -1,10 +1,8 @@
 # Nault
 
-![GitHub Pages](https://github.com/Nault/Nault/workflows/GitHub%20Pages/badge.svg)
-![Electron App](https://github.com/Nault/Nault/workflows/Electron%20App/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Nault_Nault&metric=alert_status)](https://sonarcloud.io/dashboard?id=Nault_Nault)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/nault/nault)
 [![GitHub All Releases](https://img.shields.io/github/downloads/nault/nault/total)](https://github.com/Nault/Nault/releases/latest)
-[![Discord](https://img.shields.io/badge/discord-join%20chat-orange.svg)](https://discord.nanocenter.org)
+[![Discord](https://img.shields.io/badge/discord-join%20chat-orange.svg?logo=discord&color=7289DA)](https://discord.nanocenter.org)
 
 Nault is a community driven fork of the popular Nano wallet [NanoVault](https://github.com/cronoh/nanovault) 💙
 
@@ -18,7 +16,7 @@ ___
 ## How To Use
 Nault comes in different flavors to suit your need.
 #### Desktop App
-Available for Windows/Mac/Linux - just head over to the [latest release](https://github.com/Nault/Nault/releases/latest) and download the version for your OS.
+Available for Windows/Mac/Linux - just head over to the [latest release](https://github.com/Nault/Nault/releases/latest) and download the version for your OS. Arch Linux users may [install it from the (unofficial) AUR](https://aur.archlinux.org/packages/nault-bin/).
 
 If you want to verify the binary checksum there are plenty of apps to do this. One way is using a powershell or bash terminal:
 
@@ -35,6 +33,14 @@ Both the desktop (recommended) and web version supports the Ledger Nano hardware
 The web version can additionally be pulled from the [dockerhub repo](https://hub.docker.com/r/nault/nault) using: docker pull nault/nault:latest
 
 A full security guide and other useful articles can be found in the [Nault Docs](https://docs.nault.cc).
+
+#### Mobile App
+There is no native mobile app but the web wallet contains a Progressive Web App (PWA). That allows you to run it in offline mode for remote-signing.
+
+If you visit [nault.cc](https://nault.cc) in your phone you will be given the option to install it.
+
+* Android: Click on "Install Nault for Android" in the menu
+* iOS (Safari only): 1 - Tap the share button. 2 - Select "+ Add to home screen". 3 - Open Nault from the home screen
 
 ## How To Help
 

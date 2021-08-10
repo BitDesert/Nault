@@ -1,16 +1,20 @@
-import {Component, ElementRef, HostListener, OnInit, ViewChild} from '@angular/core';
+import {Component, ElementRef, HostListener, OnInit, ViewChild, Renderer2} from '@angular/core';
 import {WalletService} from './services/wallet.service';
 import {AddressBookService} from './services/address-book.service';
 import {AppSettingsService} from './services/app-settings.service';
 import {WebsocketService} from './services/websocket.service';
 import {PriceService} from './services/price.service';
+import {UtilService} from './services/util.service';
 import {NotificationService} from './services/notification.service';
 import {WorkPoolService} from './services/work-pool.service';
 import {Router} from '@angular/router';
+import {SwUpdate} from '@angular/service-worker';
 import {RepresentativeService} from './services/representative.service';
 import {NodeService} from './services/node.service';
-import { LedgerService } from './services';
+import { DesktopService, LedgerService } from './services';
 import { environment } from 'environments/environment';
+import { DeeplinkService } from './services/deeplink.service';
+import { TranslocoService } from '@ngneat/transloco';
 
 
 @Component({
@@ -29,11 +33,17 @@ export class AppComponent implements OnInit {
     public nodeService: NodeService,
     private representative: RepresentativeService,
     private router: Router,
+    public updates: SwUpdate,
     private workPool: WorkPoolService,
+    public price: PriceService,
+    private util: UtilService,
+    private desktop: DesktopService,
     private ledger: LedgerService,
-    public price: PriceService) {
+    private renderer: Renderer2,
+    private deeplinkService: DeeplinkService,
+    private translate: TranslocoService) {
       router.events.subscribe(() => {
-        this.navExpanded = false;
+        this.closeNav();
       });
     }
 
@@ -45,15 +55,19 @@ export class AppComponent implements OnInit {
   nanoPrice = this.price.price;
   fiatTimeout = 5 * 60 * 1000; // Update fiat prices every 5 minutes
   inactiveSeconds = 0;
-  windowHeight = 1000;
+  innerWidth = 0;
+  innerHeight = 0;
+  innerHeightWithoutMobileBar = 0;
   navExpanded = false;
+  navAnimating = false;
   showAccountsDropdown = false;
+  canToggleLightMode = true;
   searchData = '';
   isConfigured = this.walletService.isConfigured;
   donationAccount = environment.donationAddress;
 
   @HostListener('window:resize', ['$event']) onResize (e) {
-    this.windowHeight = e.target.innerHeight;
+    this.onWindowResize(e.target);
   }
 
   @HostListener('document:mousedown', ['$event']) onGlobalClick(event): void {
@@ -66,20 +80,35 @@ export class AppComponent implements OnInit {
   }
 
   async ngOnInit() {
-    this.windowHeight = window.innerHeight;
+    this.onWindowResize(window);
     this.settings.loadAppSettings();
+
+    this.updateAppTheme();
 
     // New for v19: Patch saved xrb_ prefixes to nano_
     await this.patchXrbToNanoPrefixData();
+
+    // set translation language
+    this.translate.setActiveLang(this.settings.settings.language);
 
     this.addressBook.loadAddressBook();
     this.workPool.loadWorkCache();
 
     await this.walletService.loadStoredWallet();
+    // Subscribe to any transaction tracking
+    for (const entry of this.addressBook.addressBook) {
+      if (entry.trackTransactions) {
+        this.walletService.trackAddress(entry.account);
+      }
+    }
 
-    // Navigate to accounts page if there is wallet, but only if coming from home
-    if (this.walletService.isConfigured() && window.location.pathname === '/') {
-      this.router.navigate(['accounts']);
+    // Navigate to accounts page if there is wallet, but only if coming from home. On desktop app the path ends with index.html
+    if (this.walletService.isConfigured() && (window.location.pathname === '/' || window.location.pathname.endsWith('index.html'))) {
+      if (this.wallet.selectedAccountId) {
+        this.router.navigate([`account/${this.wallet.selectedAccountId}`], { queryParams: {'compact': 1}, replaceUrl: true });
+      } else {
+        this.router.navigate(['accounts'], { replaceUrl: true });
+      }
     }
 
     // update selected account object with the latest balance, pending, etc
@@ -88,7 +117,7 @@ export class AppComponent implements OnInit {
       this.wallet.selectedAccount = currentUpdatedAccount;
     }
 
-    await this.walletService.reloadBalances(true);
+    await this.walletService.reloadBalances();
 
     // Workaround fix for github pages when Nault is refreshed (or externally linked) and there is a subpath for example to the send screen.
     // This data is saved from the 404.html page
@@ -107,11 +136,11 @@ export class AppComponent implements OnInit {
         urlSearch.forEach(function(value, key) {
           queryParams[key] = value;
         });
-        this.router.navigate([path], { queryParams: queryParams});
+        this.router.navigate([path], { queryParams: queryParams, replaceUrl: true });
       } else if (fragment && fragment.length) {
-        this.router.navigate([path], { fragment: fragment});
+        this.router.navigate([path], { fragment: fragment, replaceUrl: true });
       } else {
-        this.router.navigate([path]);
+        this.router.navigate([path], { replaceUrl: true });
       }
     }
 
@@ -137,14 +166,25 @@ export class AppComponent implements OnInit {
       this.walletService.lockWallet();
     });
 
-    // Listen for an xrb: protocol link, triggered by the desktop application
-    window.addEventListener('protocol-load', (e: CustomEvent) => {
-      const protocolText = e.detail;
-      const stripped = protocolText.split('').splice(4).join(''); // Remove xrb:
-      if (stripped.startsWith('xrb_')) {
-        this.router.navigate(['account', stripped]);
-      }
-      // Soon: Load seed, automatic send page?
+    // handle deeplinks
+    this.desktop.on('deeplink', (e, deeplink) => {
+      if (!this.deeplinkService.navigate(deeplink)) this.notifications.sendWarning('This URI has an invalid address.', { length: 5000 });
+    });
+    this.desktop.send('deeplink-ready');
+
+    // Notify user if service worker update is available
+    this.updates.available.subscribe((event) => {
+      console.log(`SW update available. Current: ${event.current.hash}. New: ${event.available.hash}`);
+      this.notifications.sendInfo(
+        'An update was installed in the background and will be applied on next launch. <a href="#" (click)="applySwUpdate()">Apply immediately</a>',
+        { length: 10000 }
+      );
+    });
+
+    // Notify user after service worker was updated
+    this.updates.activated.subscribe((event) => {
+      console.log(`SW update successful. Current: ${event.current.hash}`);
+      this.notifications.sendSuccess('Nault was updated successfully.');
     });
 
     // Check how long the wallet has been inactive, and lock it if it's been too long
@@ -168,6 +208,19 @@ export class AppComponent implements OnInit {
     }
   }
 
+  onWindowResize(windowObject) {
+    this.innerWidth = windowObject.innerWidth;
+    this.innerHeight = windowObject.innerHeight;
+
+    const isMobileBarVisible = (this.innerWidth < 940);
+
+    if (isMobileBarVisible === true) {
+      this.innerHeightWithoutMobileBar = this.innerHeight - 50;
+    } else {
+      this.innerHeightWithoutMobileBar = this.innerHeight;
+    }
+  }
+
   /*
     This is important as it looks through saved data using hardcoded xrb_ prefixes
     (Your wallet, address book, rep list, etc) and updates them to nano_ prefix for v19 RPC
@@ -183,12 +236,49 @@ export class AppComponent implements OnInit {
     this.settings.setAppSetting('walletVersion', 2); // Update wallet version so we do not patch in the future.
   }
 
+  applySwUpdate() {
+    this.updates.activateUpdate();
+  }
+
   toggleNav() {
     this.navExpanded = !this.navExpanded;
+    this.onNavExpandedChange();
   }
 
   closeNav() {
+    if (this.navExpanded === false) {
+      return;
+    }
+
     this.navExpanded = false;
+    this.onNavExpandedChange();
+  }
+
+  onNavExpandedChange() {
+    this.navAnimating = true;
+    setTimeout(() => { this.navAnimating = false; }, 350);
+  }
+
+  toggleLightMode() {
+    if (this.canToggleLightMode === false) {
+      return;
+    }
+
+    this.canToggleLightMode = false;
+    setTimeout(() => { this.canToggleLightMode = true; }, 300);
+
+    this.settings.setAppSetting('lightModeEnabled', !this.settings.settings.lightModeEnabled);
+    this.updateAppTheme();
+  }
+
+  updateAppTheme() {
+    if (this.settings.settings.lightModeEnabled) {
+      this.renderer.addClass(document.body, 'light-mode');
+      this.renderer.removeClass(document.body, 'dark-mode');
+    } else {
+      this.renderer.addClass(document.body, 'dark-mode');
+      this.renderer.removeClass(document.body, 'light-mode');
+    }
   }
 
   toggleAccountsDropdown() {
@@ -214,14 +304,27 @@ export class AppComponent implements OnInit {
     const searchData = this.searchData.trim();
     if (!searchData.length) return;
 
-    if (searchData.startsWith('xrb_') || searchData.startsWith('nano_')) {
+    const isValidNanoAccount = (
+        ( searchData.startsWith('xrb_') || searchData.startsWith('nano_') )
+      && this.util.account.isValidAccount(searchData)
+    );
+
+    if (isValidNanoAccount === true) {
       this.router.navigate(['account', searchData]);
-    } else if (searchData.length === 64) {
-      this.router.navigate(['transaction', searchData]);
-    } else {
-      this.notifications.sendWarning(`Invalid Nano account or transaction hash!`);
+      this.searchData = '';
+      return;
     }
-    this.searchData = '';
+
+    const isValidBlockHash = this.util.nano.isValidHash(searchData);
+
+    if (isValidBlockHash === true) {
+      const blockHash = searchData.toUpperCase();
+      this.router.navigate(['transaction', blockHash]);
+      this.searchData = '';
+      return;
+    }
+
+    this.notifications.sendWarning(`Invalid Nano address or block hash! Please double check your input`);
   }
 
   updateIdleTime() {
@@ -233,7 +336,7 @@ export class AppComponent implements OnInit {
       this.notifications.sendInfo(`Wallet server settings is set to offline mode. Please change server first!`);
       return;
     }
-    this.walletService.reloadBalances(true);
+    this.walletService.reloadBalances();
     this.notifications.sendInfo(`Attempting to reconnect to Nano node`);
   }
 

@@ -59,6 +59,7 @@ export class UtilService {
     getPublicAccountID: getPublicAccountID,
     generateSeedBytes: generateSeedBytes,
     getAccountPublicKey: getAccountPublicKey,
+    getAccountChecksum: getAccountChecksum,
     setPrefix: setPrefix,
     isValidAccount: isValidAccount,
     isValidNanoAmount: isValidNanoAmount,
@@ -79,9 +80,12 @@ export class UtilService {
     isValidWork: isValidWork,
     validateWork: validateWork,
     difficultyFromMultiplier: difficultyFromMultiplier,
+    multiplierFromDifficulty: multiplierFromDifficulty,
   };
   array = {
-    shuffle: shuffle
+    shuffle: shuffle,
+    findWithAttr: findWithAttr,
+    equalArrays: equalArrays
   };
 
 }
@@ -278,6 +282,13 @@ function generateAccountSecretKeyBytes(seedBytes, accountIndex) {
   return newKey;
 }
 
+function getAccountChecksum(pubkey) {
+  const context = blake.blake2bInit(5);
+  blake.blake2bUpdate(context, pubkey);
+  const out = blake.blake2bFinal(context);
+  return out.reverse();
+}
+
 function generateAccountKeyPair(accountSecretKeyBytes, expanded = false) {
   return nacl.sign.keyPair.fromSecretKey(accountSecretKeyBytes, expanded);
 }
@@ -317,7 +328,7 @@ function isValidAmount(val: string) {
 
 function getAccountPublicKey(account) {
   if (!isValidAccount(account)) {
-    throw new Error(`Invalid Mikron Account`);
+    throw new Error(`Invalid Nano Account`);
   }
   const account_crop = account.length === 64 ? account.substring(4, 64) : account.substring(5, 65);
   const isValid = /^[13456789abcdefghijkmnopqrstuwxyz]+$/.test(account_crop);
@@ -328,7 +339,7 @@ function getAccountPublicKey(account) {
   const key_array = uint4ToUint8(key_uint4);
   const blake_hash = blake.blake2b(key_array, null, 5).reverse();
 
-  if (!equal_arrays(hash_uint4, uint8ToUint4(blake_hash))) throw new Error(`Incorrect checksum`);
+  if (!equalArrays(hash_uint4, uint8ToUint4(blake_hash))) throw new Error(`Incorrect checksum`);
 
   return uint4ToHex(key_uint4);
 }
@@ -418,6 +429,14 @@ export function difficultyFromMultiplier(multiplier, base_difficulty) {
   return big64.minus((big64.minus(big_base).dividedToIntegerBy(big_multiplier))).toString(16);
 }
 
+// Determine new multiplier from base difficulty (hexadecimal string) and target difficulty (hexadecimal string). Returns Number
+export function multiplierFromDifficulty(difficulty, base_difficulty) {
+  const big64 = new BigNumber(2).pow(64);
+  const big_diff = new BigNumber(difficulty, 16);
+  const big_base = new BigNumber(base_difficulty, 16);
+  return big64.minus(big_base).dividedBy(big64.minus(big_diff)).toNumber();
+}
+
 // shuffle any array
 function shuffle(array) {
   let currentIndex = array.length, temporaryValue, randomIndex;
@@ -447,13 +466,25 @@ function array_crop (array) {
   return cropped_array;
 }
 
-function equal_arrays (array1, array2) {
+function equalArrays (array1, array2) {
+  if (array1.length !== array2.length) {
+    return false;
+  }
   for (let i = 0; i < array1.length; i++) {
     if (array1[i] !== array2[i])	return false;
   }
   return true;
 }
 
+// find the position in an array given an attribute and value
+function findWithAttr(array, attr, value) {
+  for (let i = 0; i < array.length; i += 1) {
+      if (array[i][attr] === value) {
+          return i;
+      }
+  }
+  return -1;
+}
 
 function generateSeedBytes() {
   return nacl.randomBytes(32);
@@ -494,6 +525,7 @@ const util = {
     getPublicAccountID: getPublicAccountID,
     generateSeedBytes: generateSeedBytes,
     getAccountPublicKey: getAccountPublicKey,
+    getAccountChecksum: getAccountChecksum,
     setPrefix: setPrefix,
     isValidAccount: isValidAccount,
     isValidNanoAmount: isValidNanoAmount,
@@ -514,5 +546,11 @@ const util = {
     isValidWork: isValidWork,
     validateWork: validateWork,
     difficultyFromMultiplier: difficultyFromMultiplier,
+    multiplierFromDifficulty: multiplierFromDifficulty,
+  },
+  array: {
+    shuffle: shuffle,
+    findWithAttr: findWithAttr,
+    equalArrays: equalArrays
   }
 };

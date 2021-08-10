@@ -21,29 +21,29 @@
         </p>
         <p class="uk-text-center">
           <span class="import-warning" *ngIf="conflictingEntries">
-            {{ conflictingEntries }} Labels already exist and will have their name changed.
+            {{ conflictingEntries }} entries already exist but will have their name and/or tracking settings changed.
           </span>
           <span class="import-warning" *ngIf="newEntries">
-            {{ newEntries }} New labels will be added.
+            {{ newEntries }} New entries will be added.
           </span>
           <span class="import-warning" *ngIf="existingEntries">
-            {{ existingEntries }} Labels already exist and will not be modified.
+            {{ existingEntries }} entries already exist and will not be modified.
           </span>
         </p>
 
         <div uk-grid>
           <div class="uk-width-1-1">
             <ul class="uk-list uk-list-striped" style="margin-bottom: 0;">
-              <li style="background: #fff; border-bottom: 0;">
-                <div uk-grid style="color: #999; text-transform: uppercase; font-size: .875rem; font-weight: 400;">
-                  <div class="uk-width-1-4">New Label</div>
-                  <div class="uk-width-1-4">Current Label</div>
-                  <div class="uk-width-1-2 uk-text-truncate" style="padding-left: 0;">Account</div>
+              <li class="uk-list-header">
+                <div uk-grid>
+                  <div class="uk-width-1-4">New Name</div>
+                  <div class="uk-width-1-4">Current Name</div>
+                  <div class="uk-width-1-2 uk-text-truncate">Account</div>
                 </div>
               </li>
             </ul>
             <ul class="uk-list uk-list-striped" style="margin-top: 0;">
-              <li *ngFor="let entry of importData" [ngClass]="{ 'uk-text-success': !entry.originalName, 'uk-text-warning': entry.originalName && entry.originalName !== entry.name, 'uk-text-muted': entry.originalName == entry.name }">
+              <li *ngFor="let entry of importData" [ngClass]="{ 'uk-text-success': !entry.originalName, 'uk-text-warning': entry.originalName && (entry.originalName !== entry.name || entry.originalTrackBalance !== entry.trackBalance || entry.originalTrackTransactions !== entry.trackTransactions), 'uk-text-muted': entry.originalName === entry.name &&  entry.originalTrackBalance === entry.trackBalance && entry.originalTrackTransactions === entry.trackTransactions}">
                 <div uk-grid>
                   <div class="uk-width-1-4 uk-text-truncate">
                     {{ entry.name }}
@@ -64,11 +64,9 @@
       </div>
       <div class="uk-card-footer">
         <div uk-grid>
-          <div class="uk-width-1-2 uk-text-left">
+          <div class="nlt-button-group uk-width-1-1 uk-text-right">
             <button routerLink="/address-book" class="uk-button uk-button-danger">Cancel</button>
-          </div>
-          <div class="uk-width-1-2 uk-text-right">
-            <button (click)="confirmImport()" class="uk-button uk-button-secondary">Import Entries</button>
+            <button (click)="confirmImport()" class="uk-button uk-button-primary">Import Entries</button>
           </div>
         </div>
       </div>

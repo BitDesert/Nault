@@ -3,7 +3,6 @@ name: Electron App Release
 on:
   push:
   pull_request:
-  workflow_dispatch:
 
 jobs:
   # Release draft and share app version via package.json
@@ -63,7 +62,7 @@ jobs:
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v1
         with:
-          node-version: 12
+          node-version: 14
 
       - name: Install APT dependencies
         if: matrix.os == 'ubuntu-latest'
@@ -72,7 +71,6 @@ jobs:
           sudo apt-get install build-essential git -y
           sudo apt-get install libudev-dev -y
           sudo apt-get install libusb-1.0-0-dev -y
-          sudo apt-get install gcc-4.8 g++-4.8 -y
 
       - name: Install and Build Desktop App
         run: |
@@ -115,6 +113,25 @@ jobs:
           openssl sha512 desktop-app/build/*.${{ matrix.app_ext }} >> desktop-app/build/${{ matrix.artifact_name }} | bash
           openssl sha3-512 desktop-app/build/*.${{ matrix.app_ext }} >> desktop-app/build/${{ matrix.artifact_name }} | bash
           openssl blake2b512 desktop-app/build/*.${{ matrix.app_ext }} >> desktop-app/build/${{ matrix.artifact_name }} | bash
+        shell: bash
+
+      - name: Rename file paths in .yml (Linux)
+        if: matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          sed -i '/.AppImage/ s//-Linux.AppImage/g' desktop-app/build/latest-linux.yml | bash
+        shell: bash
+
+      # Special sed command for mac
+      - name: Rename file paths in .yml (Mac)
+        if: matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          sed -i '' '/.dmg/ s//-Mac.dmg/g' desktop-app/build/latest-mac.yml
+        shell: bash
+
+      - name: Rename file paths in .yml (Windows)
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          sed -i '/.exe/ s//-Windows.exe/g' desktop-app/build/latest.yml | bash
         shell: bash
 
       # Upload binaries separately for better control which release draft they go into
@@ -160,6 +177,39 @@ jobs:
           upload_url: ${{ needs.pre_build.outputs.output1 }} # This pulls ID from the Release Drafter step
           asset_path: desktop-app/build/${{ matrix.artifact_name }}
           asset_name: ${{ matrix.asset_name }}-${{ needs.pre_build.outputs.output2}}-${{ matrix.app_os }}.txt
+          asset_content_type: application/octet-stream
+
+      - name: Upload yml Linux
+        if: matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.pre_build.outputs.output1 }} # This pulls ID from the Release Drafter step
+          asset_path: desktop-app/build/latest-linux.yml
+          asset_name: latest-linux.yml
+          asset_content_type: application/octet-stream
+
+      - name: Upload yml Mac
+        if: matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.pre_build.outputs.output1 }} # This pulls ID from the Release Drafter step
+          asset_path: desktop-app/build/latest-mac.yml
+          asset_name: latest-mac.yml
+          asset_content_type: application/octet-stream
+
+      - name: Upload yml Windows
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.pre_build.outputs.output1 }} # This pulls ID from the Release Drafter step
+          asset_path: desktop-app/build/latest.yml
+          asset_name: latest.yml
           asset_content_type: application/octet-stream
       
       # Artifacts are always uploaded. Both untagged pushes and PRs

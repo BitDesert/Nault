@@ -8,6 +8,23 @@
       </div>
       <div class="uk-card-body">
         <div uk-grid>
+          
+          <div class="uk-width-1-1">
+            <div class="uk-form-horizontal">
+
+              <div class="uk-margin">
+                <label class="uk-form-label" for="languageselector">
+                  {{ 'configure-app.language' | transloco }}
+                </label>
+                <div class="uk-form-controls">
+                  <select class="uk-select" [(ngModel)]="selectedLanguage" id="languageselector">
+                    <option *ngFor="let language of languages" [value]="language.id">{{ language.label }}</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
 
           <div class="uk-width-1-1">
             <div class="uk-form-horizontal">
@@ -24,22 +41,35 @@
             </div>
           </div>
 
-          <!--<div class="uk-width-1-1">-->
-            <!--<div class="uk-form-horizontal">-->
+          <div class="uk-width-1-1">
+            <div class="uk-form-horizontal">
 
-              <!--<div class="uk-margin">-->
-                <!--<label class="uk-form-label">Account Prefix <span uk-icon="icon: info;" uk-tooltip title="Change the Nano account prefix used throughout the application.  Both are valid when sending"></span></label>-->
-                <!--<div class="uk-form-controls">-->
+              <div class="uk-margin">
+                <label class="uk-form-label" for="form-horizontal-select">Night Mode</label>
+                <div class="uk-form-controls">
+                  <select class="uk-select" [(ngModel)]="selectedNightModeOption" id="form-horizontal-select">
+                    <option *ngFor="let nightModeOption of nightModeOptions" [value]="nightModeOption.value">{{ nightModeOption.name }}</option>
+                  </select>
+                </div>
+              </div>
 
-                  <!--<div class="uk-inline uk-width-1-1">-->
-                    <!--<select class="uk-select" [(ngModel)]="selectedPrefix">-->
-                      <!--<option *ngFor="let prefix of prefixOptions" [value]="prefix.value">{{ prefix.name }}</option>-->
-                    <!--</select>-->
-                  <!--</div>-->
-                <!--</div>-->
-              <!--</div>-->
-            <!--</div>-->
-          <!--</div>-->
+            </div>
+          </div>
+
+          <div class="uk-width-1-1">
+            <div class="uk-form-horizontal">
+
+              <div class="uk-margin">
+                <label class="uk-form-label" for="form-horizontal-select">Identicons</label>
+                <div class="uk-form-controls">
+                  <select class="uk-select" [(ngModel)]="selectedIdenticonOption" id="form-horizontal-select">
+                    <option *ngFor="let identiconOption of identiconOptions" [value]="identiconOption.value">{{ identiconOption.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
 
         </div>
       </div>
@@ -99,7 +129,30 @@
 
                   <div class="uk-inline uk-width-1-1">
                     <select class="uk-select" [(ngModel)]="selectedPoWOption">
-                      <option *ngFor="let pow of powOptions" [value]="pow.value">{{ pow.name }}</option>
+                      <option *ngFor="let pow of powOptions" [value]="pow.value">
+                        <ng-element *ngIf="pow.value === 'server'">{{ getRemotePoWOptionName() }}</ng-element>
+                        <ng-element *ngIf="pow.value !== 'server'">{{ pow.name }}</ng-element>
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="uk-margin" *ngIf="selectedPoWOption === 'custom'">
+                <label class="uk-form-label">Work Server <span uk-icon="icon: info;" uk-tooltip title="Path to custom work server application. Localhost such as 127.0.0.1:1234 may not work if using nault.cc. Try the desktop app."></span></label>
+                  <div class="uk-form-controls">
+                      <input [(ngModel)]="customWorkServer" class="uk-input uk-margin-small-bottom" type="text" placeholder="http://my-work-server:port">
+                      <span class="uk-text-meta">
+                        This has to be a valid <a href="https://docs.nault.cc/2021/02/13/custom-work-server.html" target="_blank" rel="noopener noreferrer">Nano Work Server</a> endpoint or an API compliant with it.
+                      </span>
+                  </div>
+              </div>
+              <div class="uk-margin" *ngIf="selectedPoWOption === 'clientWebGL' || selectedPoWOption === 'clientCPU' || selectedPoWOption === 'custom'">
+                <label class="uk-form-label">PoW Multiplier <span uk-icon="icon: info;" uk-tooltip title="Optional increased work for transaction priority during network saturation. Overrides both default SEND 1x and RECEIVE 1/64x difficulties."></span></label>
+                <div class="uk-form-controls">
+
+                  <div class="uk-inline uk-width-1-1">
+                    <select class="uk-select" [(ngModel)]="selectedMultiplierOption">
+                      <option *ngFor="let multiplier of multiplierOptions" [value]="multiplier.value">{{ multiplier.name }}</option>
                     </select>
                   </div>
                 </div>
@@ -128,12 +181,13 @@
             <div class="uk-form-horizontal">
 
               <div class="uk-margin">
-                <label class="uk-form-label">Min Receive [NANO] <span uk-icon="icon: info;" uk-tooltip title="Minimum NANO amount to receive. Transactions below this amount will be ignored by the wallet both for receiving and in the transaction list.  Set to blank or 0 to accept all transactions."></span></label>
+                <label class="uk-form-label">Min. Receive Amount <span uk-icon="icon: info;" uk-tooltip title="Minimum NANO amount to receive. Transactions below this amount will be ignored by the wallet both for receiving and in the transactions list.  Set to blank or 0 to accept all transactions."></span></label>
                 <div class="uk-form-controls">
                   <div uk-grid>
                     <div class="uk-width-1-1">
                       <div class="uk-inline uk-width-1-1">
-                        <input [(ngModel)]="minimumReceive" class="uk-input uk-margin-small-bottom" id="form-horizontal-text4" type="text" placeholder="0.000001">
+                        <label class="uk-form-icon uk-link-reset uk-link-muted icon-nano-logo" for="form-horizontal-amount"></label>
+                        <input [(ngModel)]="minimumReceive" class="uk-input" style="padding-left: 52px !important;" id="form-horizontal-text4" type="text" placeholder="Leave blank to accept transactions of any amount">
                       </div>
 
                     </div>
@@ -154,15 +208,15 @@
                     <a class="uk-form-icon uk-form-icon-flip" uk-icon="icon: camera" (click)="openQR('rep1','account')" uk-tooltip title="Scan from QR code"></a>
                     <input (blur)="validateRepresentative()" (keyup)="searchRepresentatives()" (focus)="searchRepresentatives()" [(ngModel)]="defaultRepresentative" class="uk-input" [ngClass]="{ 'uk-form-success': repStatus === 2, 'uk-form-danger': repStatus === 0 }" id="form-horizontal-text3" type="text" placeholder="Leave blank to use a recommended one" #repInput>
                     
-                    <div *ngIf="(representativeResults$ | async).length" [hidden]="!showRepresentatives" class="uk-animation-slide-down-small uk-width-1-1 uk-card uk-card-default uk-card-body uk-position-absolute" style="z-index: 15000">
+                    <div *ngIf="(representativeResults$ | async).length" [hidden]="!showRepresentatives" class="nlt-dropdown uk-animation-slide-down-small uk-width-1-1 uk-card uk-card-default uk-card-body uk-position-absolute" style="z-index: 15000">
                       <ul class="uk-nav uk-nav-default">
                         <li class="uk-nav-header">Representative List Results</li>
                         <li class="uk-nav-divider"></li>
                         <li *ngFor="let rep of representativeResults$ | async">
                           <a (click)="selectRepresentative(rep.id)">
                             {{ rep.name }}
-                            <span *ngIf="rep.trusted" uk-icon="icon: star;" class="uk-text-success"></span>
-                            <span *ngIf="rep.warn" uk-icon="icon: warning;" class="uk-text-warning"></span>
+                            <span *ngIf="rep.trusted" class="uk-text-success" style="margin-left: 4px;"><span uk-icon="icon: star;"></span></span>
+                            <span *ngIf="rep.warn" class="uk-text-warning" style="margin-left: 4px;"><span uk-icon="icon: warning;"></span> Avoid</span>
                           </a>
                         </li>
                       </ul>
@@ -280,58 +334,70 @@
                   <div class="uk-inline uk-width-1-1">
                     <span class="uk-text-meta">
                       <table id="node-stats-table">
-                        <td>
-                          <tr>
+                        <tr>
+                          <td>
                             <strong>Server</strong>
-                          </tr>
-                          <tr>
-                            <strong>Block Count</strong>
-                          </tr>
-                          <tr>
-                            <strong>Uncemented Blocks</strong>
-                          </tr>
-                          <tr>
-                            <strong>Peers Stake Required</strong>
-                          </tr>
-                          <tr>
-                            <strong>Peers Stake Total</strong>
-                          </tr>
-                          <tr>
-                            <strong>Node Version</strong>
-                          </tr>
-                          <tr>
-                            <strong>Network</strong>
-                          </tr>
-                          <tr *ngIf="showServerValues() && !showServerConfigs()">
-                            <strong>Random Server</strong>
-                          </tr>
-                        </td>
-                        <td>
-                          <tr>
+                          </td>
+                          <td>
                             {{serverAPIUpdated ? serverAPI:'Save settings to update'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Block Count</strong>
+                          </td>
+                          <td>
                             {{nodeBlockCount || 'N/A'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Uncemented Blocks</strong>
+                          </td>
+                          <td>
                             {{nodeUncemented || 'N/A'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Peers Stake Required</strong>
+                          </td>
+                          <td>
                             {{peersStakeReq || 'N/A'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Peers Stake Total</strong>
+                          </td>
+                          <td>
                             {{peersStakeTotal || 'N/A'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Node Version</strong>
+                          </td>
+                          <td>
                             {{nodeVendor || 'N/A'}}
-                          </tr>
-                          <tr>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <strong>Network</strong>
+                          </td>
+                          <td>
                             {{nodeNetwork || 'N/A'}}
-                          </tr>
-                          <tr *ngIf="showServerValues() && !showServerConfigs()">
+                          </td>
+                        </tr>
+                        <tr *ngIf="showServerValues() && !showServerConfigs()">
+                          <td>
+                            <strong>Random Server</strong>
+                          </td>
+                          <td>
                             {{shouldRandom || 'No'}}
-                          </tr>
-                        </td>
+                          </td>
+                        </tr>
                       </table>
                     </span>
                   </div>

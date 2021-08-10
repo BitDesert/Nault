@@ -1,11 +1,13 @@
 import { Injectable } from '@angular/core';
 import * as url from 'url';
+import { TranslocoService, getBrowserCultureLang, getBrowserLang } from '@ngneat/transloco';
 
 export type WalletStore = 'localStorage'|'none';
-export type PoWSource = 'server'|'clientCPU'|'clientWebGL'|'best';
+export type PoWSource = 'server'|'clientCPU'|'clientWebGL'|'best'|'custom';
 export type LedgerConnectionType = 'usb'|'bluetooth';
 
 interface AppSettings {
+  language: string;
   displayDenomination: string;
   // displayPrefix: string | null;
   walletStore: string;
@@ -15,6 +17,8 @@ interface AppSettings {
   lockInactivityMinutes: number;
   ledgerReconnect: LedgerConnectionType;
   powSource: PoWSource;
+  multiplierSource: number;
+  customWorkServer: string;
   pendingOption: string;
   serverName: string;
   serverAPI: string | null;
@@ -22,6 +26,8 @@ interface AppSettings {
   serverAuth: string | null;
   minimumReceive: string | null;
   walletVersion: number | null;
+  lightModeEnabled: boolean;
+  identiconsStyle: string;
 }
 
 @Injectable()
@@ -29,6 +35,7 @@ export class AppSettingsService {
   storeKey = `nanovault-appsettings`;
 
   settings: AppSettings = {
+    language: null,
     displayDenomination: 'mnano',
     // displayPrefix: 'xrb',
     walletStore: 'localStorage',
@@ -38,13 +45,17 @@ export class AppSettingsService {
     lockInactivityMinutes: 30,
     ledgerReconnect: 'usb',
     powSource: 'best',
+    multiplierSource: 1,
+    customWorkServer: '',
     pendingOption: 'amount',
     serverName: 'random',
     serverAPI: null,
     serverWS: null,
     serverAuth: null,
-    minimumReceive: null,
-    walletVersion: 1
+    minimumReceive: '0.000001',
+    walletVersion: 1,
+    lightModeEnabled: false,
+    identiconsStyle: 'nanoidenticons',
   };
 
   serverOptions = [
@@ -73,10 +84,18 @@ export class AppSettingsService {
       shouldRandom: true,
     },
     {
-      name: 'VoxPopuli',
-      value: 'voxpopuli',
-      api: 'https://vox.nanos.cc/api',
-      ws: 'wss://vox.nanos.cc/websocket',
+      name: 'PowerNode',
+      value: 'powernode',
+      api: 'https://proxy.powernode.cc/proxy',
+      ws: 'wss://ws.powernode.cc',
+      auth: null,
+      shouldRandom: true,
+    },
+    {
+      name: 'Rainstorm City',
+      value: 'rainstorm',
+      api: 'https://rainstorm.city/api',
+      ws: 'wss://rainstorm.city/websocket',
       auth: null,
       shouldRandom: true,
     },
@@ -114,7 +133,19 @@ export class AppSettingsService {
     }
   ];
 
-  constructor() { }
+  // Simplified list for comparison in other classes
+  knownApiEndpoints = this.serverOptions.reduce((acc, server) => {
+    if (!server.api) return acc;
+    acc.push( server.api.replace(/https?:\/\//g, '') );
+    return acc;
+  }, [
+    'proxy.nanos.cc/proxy',
+    'node.somenano.com'
+  ]);
+
+  constructor(
+    private translate: TranslocoService
+  ) { }
 
   loadAppSettings() {
     let settings: AppSettings = this.settings;
@@ -123,6 +154,23 @@ export class AppSettingsService {
       settings = JSON.parse(settingsStore);
     }
     this.settings = Object.assign(this.settings, settings);
+
+    if (this.settings.language === null) {
+      const browserCultureLang = getBrowserCultureLang();
+      const browserLang = getBrowserLang();
+
+      if (this.translate.getAvailableLangs().some(lang => lang['id'] === browserCultureLang)) {
+        this.settings.language = browserCultureLang;
+      } else if (this.translate.getAvailableLangs().some(lang => lang['id'] === browserCultureLang)) {
+        this.settings.language = browserLang;
+      } else {
+        this.settings.language = this.translate.getDefaultLang();
+      }
+
+      console.log('No language configured, setting to: ' + this.settings.language);
+      console.log('Browser culture language: ' + browserCultureLang);
+      console.log('Browser language: ' + browserLang);
+    }
 
     this.loadServerSettings();
 
@@ -139,6 +187,7 @@ export class AppSettingsService {
 
       this.settings.serverAPI = randomServerOption.api;
       this.settings.serverWS = randomServerOption.ws;
+      this.settings.serverName = 'random';
     } else if (this.settings.serverName === 'custom') {
       console.log('SETTINGS: Custom');
     } else if (this.settings.serverName === 'offline') {
@@ -179,6 +228,7 @@ export class AppSettingsService {
   clearAppSettings() {
     localStorage.removeItem(this.storeKey);
     this.settings = {
+      language: 'en',
       displayDenomination: 'mnano',
       // displayPrefix: 'xrb',
       walletStore: 'localStorage',
@@ -188,13 +238,17 @@ export class AppSettingsService {
       lockInactivityMinutes: 30,
       ledgerReconnect: 'usb',
       powSource: 'best',
+      multiplierSource: 1,
+      customWorkServer: '',
       pendingOption: 'amount',
       serverName: 'random',
       serverAPI: null,
       serverWS: null,
       serverAuth: null,
-      minimumReceive: null,
+      minimumReceive: '0.000001',
       walletVersion: 1,
+      lightModeEnabled: false,
+      identiconsStyle: 'nanoidenticons',
     };
   }
 

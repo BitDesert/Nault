@@ -6,7 +6,7 @@
 - Communication with the network is done via Nano RPC and Websocket protocols, private or public on any nano network.
 
 ## Development Prerequisites
-- [NodeJS](https://nodejs.org) v12.x + NPM v6.x
+- [NodeJS](https://nodejs.org) v14.x + NPM v6.x
 - Angular CLI: `npm install -g @angular/cli`
 
 ## Development Guide
@@ -77,6 +77,11 @@ Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.
 ## Running end-to-end tests
 
 Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
+
+## Adding a new component or service
+
+* Instead of and setting up manually, a new component can be added simply by running `ng g component components/component-name` from root folder
+* Similar, a service can be added by `ng g service services/service-name` and add it to the providers section in the app.module.ts
 
 ## Publishing New Release
 

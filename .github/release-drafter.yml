@@ -3,20 +3,18 @@ tag-template: 'v$RESOLVED_VERSION'
 categories:
   - title: '🚀 Features'
     labels:
-      - 'feature'
-      - 'feat'
       - 'enhancement'
   - title: '🐛 Bug Fixes'
     labels:
-      - 'fix'
-      - 'bugfix'
       - 'bug'
   - title: '🧰 Maintenance'
     labels:
-      - 'chore'
-      - 'refactor'
-      - 'style'
-      - 'docs'
+      - 'dependencies'
+      - 'documentation'
+      - 'maintenance'
+  - title: '🌍 Translations'
+    labels:
+      - 'translations'
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 version-resolver:
   major:
@@ -45,4 +43,4 @@ template: |
   * **Powershell:** `Get-FileHash -Path '.\Nault-Setup-$RESOLVED_VERSION-Windows.exe' -Algorithm SHA256`
   * **Bash:** `openssl sha256 Nault-$RESOLVED_VERSION-Linux.AppImage`
 
-  Then compare the output hash with the one listed in the corresponding checksums file that you download.
+  Then compare the output hash with the one listed in the corresponding checksum.txt file. The .yml has a binary checksum that is more complicated.

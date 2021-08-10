@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { NotificationService } from '../../services/notification.service';
 import { RemoteSignService } from '../../services/remote-sign.service';
 import { QrModalService } from '../../services/qr-modal.service';
+import { AddressBookService } from 'app/services/address-book.service';
+import {BehaviorSubject} from 'rxjs';
 
 @Component({
   selector: 'app-send',
@@ -17,20 +19,31 @@ export class RemoteSigningComponent implements OnInit {
   signedBlock = '';
   unsignedStatus: number = null;
   signedStatus: number = null;
+  addressBookResults$ = new BehaviorSubject([]);
+  showAddressBook = false;
+  addressBookMatch = '';
 
   constructor(
     private util: UtilService,
     private router: Router,
-    private notifcationService: NotificationService,
+    private notificationService: NotificationService,
     private remoteSignService: RemoteSignService,
     private qrModalService: QrModalService,
+    private addressBookService: AddressBookService,
   ) { }
 
   async ngOnInit() {
-
+    this.addressBookService.loadAddressBook();
   }
 
   validateDestination() {
+    // The timeout is used to solve a bug where the results get hidden too fast and the click is never registered
+    setTimeout(() => this.showAddressBook = false, 400);
+
+    if (this.toAccountID === '') {
+      this.toAccountStatus = null;
+      return false;
+    }
     if (this.util.account.isValidAccount(this.toAccountID)) {
       this.toAccountStatus = 1;
       return true;
@@ -40,7 +53,30 @@ export class RemoteSigningComponent implements OnInit {
     }
   }
 
+  searchAddressBook() {
+    this.showAddressBook = true;
+    const search = this.toAccountID || '';
+    const addressBook = this.addressBookService.addressBook;
+
+    const matches = addressBook
+      .filter(a => a.name.toLowerCase().indexOf(search.toLowerCase()) !== -1)
+      .slice(0, 5);
+
+    this.addressBookResults$.next(matches);
+  }
+
+  selectBookEntry(account) {
+    this.showAddressBook = false;
+    this.toAccountID = account;
+    this.searchAddressBook();
+    this.validateDestination();
+  }
+
   validateUnsigned(string) {
+    if (string === '') {
+      this.unsignedStatus = null;
+      return false;
+    }
     let url = null;
     if (string.startsWith('nanosign:')) {
       url = new URL(string);
@@ -53,6 +89,10 @@ export class RemoteSigningComponent implements OnInit {
   }
 
   validateSigned(string) {
+    if (string === '') {
+      this.signedStatus = null;
+      return false;
+    }
     let url = null;
     if (string.startsWith('nanoprocess:')) {
       url = new URL(string);
@@ -68,7 +108,7 @@ export class RemoteSigningComponent implements OnInit {
     if (this.validateDestination()) {
       this.router.navigate(['account', this.toAccountID], { queryParams: {sign: 1}});
     } else {
-      this.notifcationService.sendWarning('Not a valid account format!');
+      this.notificationService.sendWarning('Invalid Nano account!');
     }
   }
 
@@ -88,7 +128,7 @@ export class RemoteSigningComponent implements OnInit {
       badScheme = true;
     }
     if (badScheme) {
-      this.notifcationService.sendWarning('Not a recognized block format!', { length: 5000 });
+      this.notificationService.sendWarning('Not a recognized block format!', { length: 5000 });
     }
   }
 
